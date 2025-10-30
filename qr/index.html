@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>entanglement...</title>
+  <script src="lib/paho-mqtt-min.js" type="text/javascript"></script>
+  <script src="lib/three.min.js"></script>
+  <script src="lib/qrcode.min.js"></script>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+  <link rel="shortcut icon" type="image/png" href="gfx/qr_favicon.png"/>
+  <style>
+    body, html {
+      margin: 0px;
+      padding: 0px;
+      background: -moz-linear-gradient(top, #37404A 0%, #000000 80%, #37404A 100%); /* FF3.6-15 */
+      background: -webkit-linear-gradient(top, #37404A 0%, #000000 80%, #37404A 100%); /* Chrome10-25,Safari5.1-6 */
+      background: linear-gradient(to bottom, #37404A 0%, #000000 80%, #37404A 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+      filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#333333', endColorstr='#111111',GradientType=0 ); /* IE6-9 */
+      overscroll-behavior-y: contain;
+    }
+    a {
+      color: #00C895;
+    }
+    a:active {
+      color: #ffffff;
+    }
+    #solace_logo_div_tl {
+      position: absolute;
+      top: 0px;
+      left: 0px;
+      z-index: 99;
+      background-color: rgba(255, 255, 255, 0);
+      padding: 10px;
+      font-size: 100%;
+    }
+    #text_div_bl {
+      position: absolute;
+      bottom: 0px;
+      left: 0px;
+      z-index: 99;
+      background-color: rgba(255, 255, 255, 0);
+      padding: 10px;
+      font-size: 90%;
+    }
+    #info_div_tr {
+      position: absolute;
+      top: 0px;
+      right: 0px;
+      z-index: 99;
+      background-color: rgba(255, 255, 255, 0);
+      padding: 10px;
+      pointer-events: all;
+    }
+    #mini_qr_div_br {
+      position: absolute;
+      bottom: 0px;
+      right: 0px;
+      z-index: 99;
+      background-color: rgba(255, 255, 255, 0);
+      padding: 10px;
+    }
+    #touch_here {
+      position: absolute;
+      left:0px;
+      top:0ps;
+      z-index: 200;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+<div id='info_div_tr'><a href="explain.html" target="_blank"><img src="gfx/qr_explain3.png"/></a></div>
+<!--div id='info_div_tr'><a href="https://www.youtube.com/watch?v=AZDP8DbyfmE" target="_blank"><img src="gfx/qr_explain3.png"/></a></div-->
+<div id='touch_here'><img src="gfx/touch2.png"/></div>
+<div id='mini_qr_div_br'></div>
+<div id="solace_logo_div_tl">
+  <img src="gfx/entanglement3.png"/>
+</div>
+<div id="text_div_bl">
+  <span style="font-family: Arial, sans-serif; font-size: 100%; color: #00C895">
+    An event-driven demo by <b>Aaron</b>&nbsp;&nbsp;<span style="font-size: 80%">&copy; 2021</span><br/>
+    Real-time WebSockets PubSub&plus; communication<br/>
+    <span style="color: #00fdba"><b>Scan the QR code with <output id=phone>a</output> phone to entangle</b></span><br/>
+    <br/>
+    <span style="color: #00C895aa">Latency: <output id=ts>--</output> ms;&nbsp;&nbsp;<!--output id=sent>-</output> msg/s send;&nbsp;&nbsp;--><output id=message_rate>--</output> messages/sec<br/>
+    <b><output id=conn>Disconnected</output></b></span>
+  </span>
+</div>
+<script>
+  const URL_WHERE_DEPLOYED = "https://sporadius.github.io/solace-demo/qr";  // change this URL if you want to deploy yourself on your webserver! ///////////////////////////////////
+  var uid;     // the UniqueID for this particular client instance
+  var linkUid;  // the "linked" ID for entanglement communication
+  var serverIndex = null;  // which mqtt server connection instance am I connected to?
+  var isMobile = false;  //initiate as false
+  var isLocked = true;   // don't rotate the cube until we link
+  var leader = false;
+  // device detection...
+  if (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|ipad|iris|kindle|Android|Silk|lge |maemo|midp|mmp|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(navigator.userAgent)
+    || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(navigator.userAgent.substr(0,4))) {
+    isMobile = true;
+    //window.alert(navigator.userAgent);
+	  document.getElementById('phone').innerHTML = '<i><u>another</u></i>';  // change 'a phone' to 'another phone'
+    //window.alert('NOTE: this demo is curently broken on newer iPhones b/c iOS changed their stupid permissions!');
+  }
+  uid = ""+(Math.random() + 1).toString(36).substring(2,6);  // generate a "random" [0-9a-z] 4 char ID
+  console.log("uid: "+uid);
+  linkUid = window.location.search.substring(1);  // grab all the chars at the end of the URL after the '?', then check it
+  const linkRegex = /^[0-9][0-9a-z]{4}$/;  // should be one server index, and then 4 chars
+  if (!linkRegex.test(linkUid)) linkUid = "";  // blank it, not what I'm expecting
+  if (linkUid != "") {  // means there were URL parameters... try to parse...
+    serverIndex = 1 * linkUid.substring(0,1);  // grab the first character, indicates which cloud to connect to
+    if (isNaN(serverIndex) || serverIndex < 0 || serverIndex > 3 || linkUid.length != 5) {  // not valid
+      serverIndex = null;
+      linkUid = "";
+    } else {
+      linkUid = linkUid.substring(1,5);  // next 4 chars are the actual code
+      console.log("serverIndex: "+serverIndex);
+      isLocked = true;
+    }
+  }
+  if (linkUid == "") {  // so haven't picked a server yet... generate a new linkUid
+    linkUid = ""+(Math.random() + 1).toString(36).substring(2,6);  // 4 "random" [0-9a-z]
+    document.getElementById("info_div_tr").style.display = "none";  // hide the "explain" graphic until someone else connects
+    leader = true;
+    // helpful message in case people load the phone first
+    if (isMobile) window.alert("You'll need a 2nd phone to try this, or load sg.solace.com/qr on your desktop instead!");
+  }
+  console.log("linkUid: "+linkUid);
+  document.getElementById("mini_qr_div_br").style.display = "none";  // hide the QR code in the bottom right corner
+  window.addEventListener("deviceorientation", sendOrientationMsg, true);
+  window.addEventListener("keydown", keyPressed, false);
+  document.addEventListener("touchstart", touchStart, {passive: false});
+  document.addEventListener("touchmove", touchMove, {passive: false});
+  document.addEventListener("touchend", touchEnd, {passive: false});
+
+  var w = window.innerWidth;
+  var h = window.innerHeight;
+  var touchX = null;  // where we're touching on the screen
+  var touchY = null;
+  var diffX = 0;  // the difference between the last position and this one (to calculate speed of rotation for spinning effect)
+  var diffY = 0;
+  var spinning = false;
+
+  function touchStart(e) {
+    if (!chosenIsConnected || (isLocked && leader)) return;
+    //if (isMobile) e.preventDefault();
+    e.preventDefault();
+    spinning = false;
+    touchX = e.touches[0].pageX;
+    touchY = e.touches[0].pageY;
+    if ((w-touchX) < 50 && touchY < 60) {  // this is because sometimes the "explain" button link doesn't work for touch, only clicking on it with mouse
+      window.open('https://youtu.be/AZDP8DbyfmE','_blank');
+    }
+  }
+
+  function touchMove(e) {
+    if (!chosenIsConnected || (isLocked && leader)) return;
+    if (isMobile) e.preventDefault();
+    e.preventDefault();
+    diffX = e.touches[0].pageX - touchX;  // calculate the diff
+    diffY = e.touches[0].pageY - touchY;
+    touchX = e.touches[0].pageX;  // update the previous coordinates
+    touchY = e.touches[0].pageY;
+    sendSwipeMsg(diffX,diffY);  // publish a message
+  }
+
+  function touchEnd(e) {
+    //console.log("Release!  diffX:"+diffX+", diffY: "+diffY);
+    if (!chosenIsConnected || (isLocked && leader)) return;
+    spinning = true;
+    spin();
+  }
+
+  function spin() {
+    if (!spinning) return;
+    var deets = {id: uid, a: 0, b: (diffY*-0.3333).toFixed(3), g: (diffX*-0.3333).toFixed(3)};
+    //console.log(deets);
+    var message = new Paho.MQTT.Message(JSON.stringify(deets));
+    message.destinationName = "qr/ori2/"+linkUid;
+    chosen.send(message);
+    diffX *= 0.95;
+    diffY *= 0.95;
+    if (Math.abs(diffX) > 0.5 || Math.abs(diffY) > 0.5) {  // slow the spin down slightly each loop
+      window.setTimeout(spin,25);  // only keep going until we've run out of rotation
+    }
+  }
+
+
+  function getQrUrl2(size) {
+    var opts = {
+      errorCorrectionLevel: 'L',
+      type: 'image/png',
+      margin: 1,
+      scale: 20,
+      color: {
+        dark:"#20262A",
+        light:"#00fdbd",
+	      //light:"#00C895",
+      },
+    };
+    console.log('Generating QR for: ' + URL_WHERE_DEPLOYED+'?'+serverIndex+linkUid);
+    QRCode.toDataURL(URL_WHERE_DEPLOYED+'?'+serverIndex+linkUid, opts, function (err, url) {
+      loadQr3(url);  // on success, do this
+    });
+  }
+
+  // now let's setup some of the 3D scene
+  var camera, scene, renderer;
+  var cube;
+  var bufferScene;
+  var bufferTexture;
+  var backdrop_material;
+  function init() {
+    camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 1000 );
+    if (isLocked) {
+      camera.position.z = 600;
+    } else {
+      camera.position.z = 450;
+    }
+    scene = new THREE.Scene();
+    scene.add(new THREE.AmbientLight(0xffffff));
+    scene.add(new THREE.AmbientLight(0xffffff));
+    // bright white spotlight above
+    var spotLight = new THREE.SpotLight( 0xffffff );
+    spotLight.position.set( 100, 1000, 100 );
+    scene.add( spotLight );
+    // add a green light underneath, to the side
+    var spotLight2 = new THREE.SpotLight( 0x00C895,0.75);
+    spotLight2.position.set( 1000, -1000, 0 );
+    scene.add( spotLight2 );
+    // this is a plane for a backdrop for making the flash with new joiners
+    var backdrop = new THREE.PlaneGeometry(5000,5000);
+    backdrop.translate(0,0,-300);
+    backdrop_material = new THREE.MeshStandardMaterial( {color: 0xffffff, side: THREE.DoubleSide, opacity: 0.0, transparent: true} );
+    var plane = new THREE.Mesh( backdrop, backdrop_material );
+    scene.add( plane );
+    renderer = new THREE.WebGLRenderer( { antialias: false, alpha: true} );
+    renderer.setPixelRatio( window.devicePixelRatio );
+    renderer.setSize( window.innerWidth-5, window.innerHeight-5);
+    document.body.appendChild( renderer.domElement);
+    window.addEventListener('resize',onWindowResize,false);
+    animate();
+  }
+  init();  // set it up now!
+
+  function animate() {
+    requestAnimationFrame( animate );
+    renderer.render( scene, camera );
+  }
+
+  // this is the "benchmarking" graphic that stays until we pick a connection
+  var benchPlane;
+  function loadBench() {
+    var geometry = new THREE.PlaneGeometry( 500, 500 );
+    var solbench = new THREE.TextureLoader().load( 'gfx/qr_bench2.png' );
+    var material = new THREE.MeshBasicMaterial( { map: solbench } );
+    benchPlane = new THREE.Mesh( geometry, material );
+    scene.add( benchPlane );
+  }
+
+  if (serverIndex == null) loadBench();  // havne't chosen a server yet, so show the "benchmarking" graphic
+  // the graphics for the side of the cube
+  var qrTexture;
+  var qrTexture2;
+  var solcube = new THREE.TextureLoader().load( 'gfx/sol_cube.png' );
+  var solcloud = new THREE.TextureLoader().load( 'gfx/sol_cloud.png' );
+  // this is only called inside "finalize" method
+
+  function loadQr3(url) {
+    if (!isMobile) {
+      // small QR code for the right bottom corner on desktops
+      document.getElementById("mini_qr_div_br").innerHTML = '<img width="96" src="'+url+'"/>';
+    }
+    qrTexture = new THREE.TextureLoader().load(url,
+      // onLoad callback
+      function ( qrTexture ) {
+        console.log('loaded the QR!');
+        drawBox();
+      },
+      // onProgress callback currently not supported
+      undefined,
+      // onError callback
+      function ( err ) {
+        console.error( "Couldn't fetch QR code. Sorry!!" );
+        alert( "Couldn't fetch QR code. Sorry!!" );
+      }
+    );
+  }
+
+  // means everything is done and loaded
+  function drawBox() {
+    var geometry = new THREE.BoxGeometry( 200, 200, 200 );
+    var material = [
+      new THREE.MeshStandardMaterial( { map: solcube } ),
+      new THREE.MeshStandardMaterial( { map: solcube } ),
+      new THREE.MeshStandardMaterial( { map: solcloud } ),
+      new THREE.MeshStandardMaterial( { map: solcloud } ),
+      new THREE.MeshStandardMaterial( { map: qrTexture } ),  //front
+      new THREE.MeshStandardMaterial( { map: qrTexture } ),
+    ];
+    cube = new THREE.Mesh( geometry, material );
+    scene.remove(benchPlane);
+    scene.add(cube);
+    // all done at this point!
+    chosenIsConnected = true;
+    if (!isLocked && !isMobile) {
+      document.getElementById("mini_qr_div_br").style.display = "block";
+    }
+  }
+
+  function onWindowResize() {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize( window.innerWidth-5, window.innerHeight-5);
+  }
+
+  // MQTT STUFF!
+  var connections = [];
+  var chosen;  // this will be the eventual client connection we choose
+  var chosenIsConnected = false;
+  function addConnection(desc,url,port,ssl,user,pw) {
+    var connection = {};
+    var client = new Paho.MQTT.Client(url,port,uid);
+    client.desc = desc;
+    client.user = user;
+    client.pw = pw;
+    client.isConnected = false;
+    client.benchmarkMsgs = 0;
+    client.benchmarkTotal = 0;
+    var connectOptions = { };
+    connectOptions["useSSL"] = ssl;
+    if (user !== "") connectOptions["userName"] = user;
+    if (pw !== "") connectOptions["passwordpassword"] = pw;
+    connectOptions["reconnect"] = true;
+    connectOptions["invocationContext"] = client;
+    connectOptions["onSuccess"] = onConnect;
+    connectOptions["onFailure"] = onFailure;
+    client.connectOptions = connectOptions;
+    client.onMessageArrived = function(message) {
+      //console.log("Message received on "+desc);
+      //document.getElementById("blah").value += "message: "+message.destinationName;
+      //console.log("onMessageArrived: topic='"+message.destinationName+"', payload='"+message.payloadString+"'");
+      if (message.destinationName == "qr/ori2/"+linkUid) {  // someone has swiped
+        msgRec++;
+        rotate2(JSON.parse(message.payloadString));
+      } else if (message.destinationName == "qr/ori3/"+linkUid) {  // rotation via accelerometer
+        msgRec++;
+        rotate3(JSON.parse(message.payloadString));
+      } else if (message.destinationName == "qr/ori4/"+linkUid && !leader) {  // absolute orientation
+        absoluteRotate(JSON.parse(message.payloadString));  // sent by the leader to keep everyone in sync
+      } else if (message.destinationName == "qr/timing/"+uid) {
+        if (isBenchmarking) {
+          var delta = Date.now() - message.payloadString;
+          client.benchmarkMsgs++;
+          client.benchmarkTotal += delta;
+        } else {
+          timing(message.payloadString);
+        }
+      }
+    };
+    client.onConnectionLost = function(responseObject) {
+      // called when the client loses its connection
+      client.isConnected = false;
+      if (responseObject.errorCode !== 0) {
+        console.log("Connection lost from "+client.desc+":"+responseObject.errorMessage);
+      } else {
+        console.log("Disconnected from "+client.desc);
+        if (client === chosen) document.getElementById('conn').value = 'Not connected';
+      }
+    };
+    connection.client = client;
+    connection.id = connections.length;  // which number is it?
+    connections.push(connection);
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // list of connections to try /////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // add your own MQTT connections here... sign up for Solace Cloud!!
+  addConnection("Solace Cloud (Where??)","spie-test.messaging.solace.cloud", Number(8883), true, "solace-cloud-client", "");
+  // can also use other MQTT brokers, if you want...or comment these out
+  //addConnection("Eclipse Test Server","mqtt.eclipseprojects.io",Number(443),true,"","");
+  //addConnection("Mosquitto Test Server","test.mosquitto.org",Number(8081),true,"","");
+  // addConnection("EMQ Test Server","broker.emqx.io",Number(8083),false,"","");  // not WSS, get "mixed content" warnings in Chrome
+  // addConnection("HiveMQ Test Server","broker.hivemq.com",Number(8000),false,"","");  // not WSS
+
+
+  var isBenchmarking = false;  // set to true when first connect, then introduce timer
+  var isConnSelected = false;
+  var prevMsgSent = 0;
+  var msgRec = 0;
+  var prevMsgRec = 0;
+  var msgRecRate = 0;
+  if (serverIndex == null) {  // means we haven't chosen which to connect to
+    // connect to all, and benchmark
+    document.getElementById('conn').value = "Benchmarking...";
+    for (var i=0;i<connections.length;i++) {
+      var client = connections[i].client;
+      console.log("Connecting to "+client.desc);
+      client.connect(client.connectOptions);
+    }
+  } else {  // this is a follower, the broker has been selected by the leader, and we're just choosing it
+    chosen = connections[serverIndex].client;
+    document.getElementById('conn').value = 'Connecting to '+chosen.desc;
+    console.log("Connecting to "+chosen.desc);
+    chosen.connect(chosen.connectOptions);
+  }
+
+  function onFailure(obj) {
+    var client = obj.invocationContext;
+    //window.alert("Error connecting to "+client.desc+": code "+obj.errorCode+",\n"+obj.errorMessage);
+    client.isConnected = false;
+    //document.getElementById('conn').value = "Connection failed";
+  }
+
+  var connCount = 0;
+  var tooLateCount = 0;
+  var haveReceivedOneSelfOriEvent = false;
+  // called when the client connects
+  function onConnect(obj) {
+    if (chosenIsConnected) return;  // if we've already chosen what connection to use, ignore any else that comes in late
+    connCount++;
+    //document.getElementById('conn').innerHTML = '<i>CONNECT'+connCount+'</i>';
+    var client = obj.invocationContext;
+    client.subscribe("qr/timing/"+uid);  // for my latency measurements
+    if (isConnSelected) {  // if we've already chosen which connection, just ignore this late connect guy
+      tooLateCount++;
+      client.disconnect();
+      return;
+    }
+    client.isConnected = true;
+    console.log("Connected to "+client.desc+"!");
+    //client.subscribe("qr/timing/"+uid);  // for my latency measurements
+    if (serverIndex == null) {  // haven't chosen yet who
+      if (!isBenchmarking) {  // haven't started benchmarking yet, this is the first connection, so start a timer
+        isBenchmarking = true;
+        setTimeout(checkIfDone,2000);  // give it a bit to complete
+      }
+      setTimeout(benchmark,50,client,10);  // start the benchmarking in 50ms for 10 loops
+    } else {  // this must be a follower... we know which particular instance we want to connect to
+      finalizeChooseConnection();
+      setTimeout(function showFingerTouchGfx() {
+        if (!haveReceivedOneSelfOriEvent) {  // so we're connected now, but haven't received any orientation event... so show a grphic to touch screen
+          const t = document.getElementById('touch_here');
+          t.style.left = ((w/2)-130)+"px";
+          t.style.top = ((h/2)-100)+"px";
+          //t.style.opacity =  1;
+          setTimeout(function fadein() {
+            t.style.opacity = +t.style.opacity + 0.02;
+            if (!haveReceivedOneSelfOriEvent && +t.style.opacity < 1) setTimeout(fadein,10);
+          },10);
+        }
+      },1500);  // show after 1.5 seconds of nothing
+    }
+  }
+
+  function benchmark(client,loops) {
+    if (!isBenchmarking) return;  // must be done, so stop
+    var timestamp = ""+Date.now();
+    var message = new Paho.MQTT.Message(timestamp);
+    message.destinationName = "qr/timing/"+uid;
+    client.send(message);
+    if (--loops > 0) {
+      setTimeout(benchmark,50,client,loops);
+    } else {
+      console.log("Done benchmarking "+client.desc);
+    }
+  }
+
+  function checkIfDone() {
+    console.log("----------------------------------------------------");
+    var min = 999999;
+    var index = -1;
+    for (var i=0;i<connections.length;i++) {
+      var client = connections[i].client;
+      if (client.benchmarkMsgs > 0 && (client.benchmarkTotal/client.benchmarkMsgs) < min) {
+        min = client.benchmarkTotal/client.benchmarkMsgs;
+        index = i;
+      }
+      console.log(connections[i].client.desc+" avg latency: "+(connections[i].client.benchmarkTotal/connections[i].client.benchmarkMsgs)+"ms with "+connections[i].client.benchmarkMsgs+" msgs received");
+    }
+    if (index == -1) {
+      document.getElementById('conn').value = 'Latencies too high. Connection terminated.';
+      return;
+    }
+    for (var i=0;i<connections.length;i++) {
+      if (i != index) {
+        if (connections[i].client.isConnected) {
+          connections[i].client.disconnect();
+        }
+      } else {
+        // chosen = whichever cloud I'm connected to
+        chosen = connections[i].client;
+        //chosen = connections[i]['client'];
+        serverIndex = i;
+        prevDelta = min;  // initialize the latency var with the values we calculated
+        finalizeChooseConnection();
+      }
+    }
+  }
+
+  function finalizeChooseConnection() {
+    document.getElementById('conn').value = 'Connected to '+chosen.desc;
+    chosen.subscribe("qr/ori/"+linkUid);
+    chosen.subscribe("qr/ori2/"+linkUid);  // for accellerometer
+    chosen.subscribe("qr/ori3/"+linkUid);  // for swipe
+    chosen.subscribe("qr/ori4/"+linkUid);  // for absolute position from leader
+    isBenchmarking = false;
+    isConnSelected = true;  // benchmarking is done, choose the connection!
+    getQrUrl2();
+  }
+
+  // makes the background flash when someone new joins the mesh
+  function newJoiner(count) {
+    backdrop_material.opacity = (13-count)/13;
+    count++;
+    if (count < 14) {
+      window.setTimeout(newJoiner,30,count);
+    }
+  }
+
+  // calculates and updates the latency displayed on the screen. uses a smoothed average
+  var prevDelta = 0;  // this will get updated with computed latency once we choose which connection we want
+  function timing(ts) {
+    var delta = Date.now() - ts;
+    prevDelta = 0.95*prevDelta + 0.05*delta;
+    document.getElementById('ts').value = prevDelta.toFixed(0);
+  }
+
+  var prev = {};
+
+  // generated by swipes
+  function rotate2(deets) {
+    if (!haveReceivedOneSelfOriEvent && deets.id === uid) {
+      haveReceivedOneSelfOriEvent = true;
+      document.getElementById('touch_here').style.opacity = 0;
+    }
+    rotate3(deets);
+  }
+
+  // for the device orientation accelelorometer
+  function rotate3(deets) {
+    //console.log("rotate("+JSON.stringify(deets));
+    if (!prev.hasOwnProperty(deets.id)) {  // first time seeing this particular UID
+      prev[deets.id] = {};  // initialize
+      //prev[deets.id]["alpha"] = deets.a;
+      //prev[deets.id]["beta"]  = deets.b;
+      //prev[deets.id]["gamma"] = deets.g;
+      //if (deets.id != uid) {  // i.e. not myself
+        if (isLocked) {  // and I'm still isLocked, waiting for a joiner
+          isLocked = false;  // now unlock
+          camera.position.z = 450;  // move camera closer
+          document.getElementById("info_div_tr").style.display = "block";  // show the "explain" div
+          if (!isMobile) {
+            document.getElementById("mini_qr_div_br").style.display = "block";
+          }
+        }
+        newJoiner(0);  // flash the screen
+      //}
+    }
+    if (isLocked) return;
+    //var factor = 0.015;
+    var factor = 0.02;
+    cube.rotation.z -= factor * deets.a;
+    cube.rotation.x -= factor * deets.b;
+    cube.rotation.y -= factor * deets.g;
+  }
+
+  function absoluteRotate(deets) {
+    cube.rotation.x = deets.x;
+    cube.rotation.y = deets.y;
+    cube.rotation.z = deets.z;
+  }
+
+  // in case you want to rotate using your keyboard?
+  function keyPressed(event) {
+    if (!chosenIsConnected || isLocked) return;
+    var factor = 0.1;
+    if (event.key === "ArrowRight") {
+      cube.rotation.y -= factor;
+    } else if (event.key === "ArrowLeft") {
+      cube.rotation.y += factor;
+    } else if (event.key === "ArrowUp") {
+      cube.rotation.x -= factor;
+    } else if (event.key === "ArrowDown") {
+      cube.rotation.x += factor;
+    }
+  }
+
+  var firstOri = false;
+  var prevOri = { alpha: 0, beta: 0, gamma: 0 };
+  // this only works on Android phones now, accelerometer data is blocked on iPhone, this is fired when the device moves
+  function sendOrientationMsg(event) {
+    if (!chosenIsConnected || (isLocked && leader)) return;
+    if (!firstOri) {
+      firstOri = true;
+      //window.alert("You've just received the first orientation event!");
+      //window.alert( 1 * event.alpha.toFixed(2));
+      //window.alert( 1 * event.beta.toFixed(2));
+      //window.alert( 1 * event.gamma.toFixed(2));
+      // just set them manually/directly
+      //prevOri.alpha = 1 * event.alpha.toFixed(3);
+      //prevOri.beta =  1 * event.beta.toFixed(3);
+      //prevOri.gamma = 1 * event.gamma.toFixed(2);
+      prevOri.alpha = event.alpha;
+      prevOri.beta =  event.beta;
+      prevOri.gamma = event.gamma;
+    }
+    // get current values
+    var alpha = event.alpha;
+    var beta =  event.beta;
+    var gamma = event.gamma;
+
+    // alpha: 0,360;  beta: -180,180;  gamma: -90,90
+    if (Math.abs(prevOri.alpha - alpha) > 270) { // assume wraparound 0->359
+      if (alpha < 180) {
+        prevOri.alpha -= 360;
+      } else {
+        prevOri.alpha += 360;
+      }
+    }
+    if (Math.abs(prevOri.beta - beta) > 270) { // assume wraparound -180->180
+      if (beta < 0) {
+        prevOri.beta -= 360;
+      } else {
+        prevOri.beta += 360;
+      }
+    }
+    if (Math.abs(prevOri.gamma - gamma) > 135) { // assume wraparound -90->90
+      if (gamma < 0) {
+        prevOri.gamma -= 180;
+      } else {
+        prevOri.gamma += 180;
+      }
+    }
+    //var factor = 0.015;
+    var factor = 1;
+    var diffA = (factor * (prevOri.alpha - alpha)).toFixed(6) * 1;
+    var diffB = (factor * (prevOri.beta - beta)).toFixed(6) * 1;
+    var diffG = (factor * (prevOri.gamma - gamma)).toFixed(6) * 1;
+    var deets = {id: uid, a: diffA, b: diffB, g: diffG};
+    var message = new Paho.MQTT.Message(JSON.stringify(deets));
+    message.destinationName = "qr/ori3/"+linkUid;
+    chosen.send(message);
+    prevOri.alpha = alpha;
+    prevOri.beta = beta;
+    prevOri.gamma = gamma;
+  }
+
+  function sendSwipeMsg(x,y) {
+    var deets = {id: uid, a: 0, b: (y*-0.25).toFixed(6) * 1, g: (x*-0.25).toFixed(6) * 1};
+    var message = new Paho.MQTT.Message(JSON.stringify(deets));
+    message.destinationName = "qr/ori2/"+linkUid;
+    chosen.send(message);
+  }
+
+  // only sent by the leader, to keep everyone in sync; topic "ori4"
+  setInterval(function sendAbsolutePosition() {
+    if (!leader || !chosenIsConnected) return; //|| isLocked) return;
+    var message = new Paho.MQTT.Message(JSON.stringify({x:cube.rotation.x.toFixed(6) * 1, y:cube.rotation.y.toFixed(6) * 1, z:cube.rotation.z.toFixed(6) * 1}));
+    message.destinationName = "qr/ori4/"+linkUid;
+    chosen.send(message);
+  },2000);
+
+  // the following function is used to provide live latency numbers
+  // it sends 4 msg/s on a unique "timing" topic, used to calcualate RTT to SC
+  setInterval(function updateLatency() {
+    // don't update the latency until we've chosen a connection
+    if (!chosenIsConnected) return;
+    var timestamp = ""+Date.now();
+    var message = new Paho.MQTT.Message(timestamp);
+    message.destinationName = "qr/timing/"+uid;
+    chosen.send(message);
+  },500);
+
+  // slowly rotate the cube around all 3 axes
+  setInterval(function slowlyRotateCube() {
+    // wait until we've chosen which connection we want, and have linked to one other (i.e. unlocked)
+    if (!chosenIsConnected || isLocked) return;
+    var factor = 0.0005;
+    cube.rotation.y -= factor * 4;
+    cube.rotation.x -= factor * 2;
+    cube.rotation.z += factor * 1;
+  },16);
+
+  // update the message rates every 250ms
+  setInterval(function updateMsgRates() {
+    // wait until we've chosen which connection we want, and have linked to one other (i.e. unlocked)
+    if (!chosenIsConnected || isLocked) return;
+    // since we sample 4 times a second, need to multiply by 4 (so, 0.75 + 0.25 for smoothed average)
+    msgRecRate = (0.75 * msgRecRate) + (0.25 * (msgRec - prevMsgRec)); 
+    document.getElementById('message_rate').value = (2 * msgRecRate).toFixed(0);
+    prevMsgRec = msgRec;
+  },500);
+
+</script>
+</body>
+</html>

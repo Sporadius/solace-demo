@@ -1,0 +1,49 @@
+<html>
+<head>
+<title>Entanglement Demo Explain Page</title>
+<style>
+    body, html {
+      margin: 0px;
+      padding: 20px;
+      background: #333333;
+      //background: -moz-linear-gradient(top, #333333 0%, #000000 80%, #333333 100%); /* FF3.6-15 */
+      //background: -webkit-linear-gradient(top, #333333 0%, #000000 80%, #333333 100%); /* Chrome10-25,Safari5.1-6 */
+      //background: linear-gradient(to bottom, #333333 0%, #000000 80%, #333333 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+      //filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#333333', endColorstr='#111111',GradientType=0 ); /* IE6-9 */
+      overscroll-behavior-y: contain;
+    }
+    p,h1,table,td,ul,li {
+      color: #dddddd;
+      font-family: sans-serif;
+    }
+    a {
+      color: #00fdba;
+      font-family: sans-serif;
+    }
+    a:active {
+      color: #ffffff;
+    }
+
+</style>
+</head>
+<body>
+<h1>Explain Page</h1>
+<p><a href="https://www.youtube.com/watch?v=AZDP8DbyfmE">Watch this video for how it's done.</a></p>
+<p>Scan the code, and link your phone to the demo. Note that iOS recently changed their security permissions, so access to the accelerometer data isn't there.</p>
+<ul>
+<li>When the webpage initially loads, it connects into 3 different MQTT cloud brokers spread around the globe</li>
+<li>It subscribes to a "timing" topic with a uniqueID, and then publishes a series of messages on that topic on each link, containing the current timestamp as payload</li>
+<li>It calculates the deltas of each of those messages as they are received back via the subscription, measuring the Round Trip Time (RTT) to each broker; it then chooses the "closest" one and disconnects from the other two</li>
+<li>It then generates another uniqueID, a "MESH_ID", and subscribes to an "orientation" topic with that MESH_ID, and generates a QR code with that MESH_ID embedded</li>
+<li>When the QR code is scanned, it tells the next webpage that loads where to connect and what topic to subscribe to</li>
+<li>JavaScript has various event handlers for touch and orientation data: in each event handler callback, I publish a message containing that information on the MESH_ID orientation topic</li>
+<li>Since both/all copies of the webpage are listening on the same topic, they each get a copy of the message data (standard pub/sub distribution), the cube is rotated by the amount specified in the payload, and so they are <b><i>entangled</i></b></li>
+</ul>
+
+<img src="gfx/qr-explain-still.png" width="800"/>
+
+<p>Hope you like it.<br/><br/>- Aaron</p>
+
+</body>
+</html>
+
