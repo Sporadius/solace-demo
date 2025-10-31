@@ -269,7 +269,7 @@
   function loadQr3(url) {
     if (!isMobile) {
       // small QR code for the right bottom corner on desktops
-      document.getElementById("mini_qr_div_br").innerHTML = '<img width="96" src="'+url+'"/>';
+      document.getElementById("mini_qr_div_br").innerHTML = '<img width="192" src="'+url+'"/>';
     }
     qrTexture = new THREE.TextureLoader().load(url,
       // onLoad callback
